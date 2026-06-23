@@ -1,45 +1,39 @@
-# Cross-language interop + vectors + benchmarks added
+# Cross-language interop + structural tests + benchmarks added
 
-We've added three contributions to this branch that address spec and testing blockers:
+We've been working on cross-language PQC interop across the libp2p ecosystem (JS: js-libp2p-noise PR #665, Python: py-libp2p PR #1310) and wanted to contribute the Rust side of that work here.
 
-## 1. Interop listener binary (`examples/noise_hfs_listener.rs`)
+## 1. Structural compliance tests (`tests/interop_hfs.rs`)
 
-Standalone TCP binary that completes one XXhfs handshake and prints the peer ID. Run it alongside the Python (py-libp2p PR #1310) or JavaScript (js-libp2p-noise PR #665) dialers to verify cross-language compatibility.
+`SeededResolver` pins the X25519 static keys for both sides, but ML-KEM ephemeral keys still use system entropy — the snow fork's `generate()` bypasses the seeded RNG and calls the OS directly. Because of this, the handshake hash changes every run and a pinned `HANDSHAKE_HASH` constant cannot be asserted across runs or machines.
 
-Usage pattern:
-- Start: `cargo run --example noise_hfs_listener --features mlkem-hfs`
-- Dial from another language implementation
-- Verify handshake completes and hash matches
+What the tests *can* assert deterministically:
 
-## 2. Deterministic test vectors (`tests/interop_hfs.rs`)
+- **Intra-run hash agreement**: both initiator and responder compute the same handshake hash within a single run.
+- **Message length geometry**: msg1 = 1216 bytes (e + e1 KEM pubkey), msg2 = 1200 bytes (e + ee + s + es + ekem1 ciphertext + AEAD tags), msg3 = 64 bytes (s + se).
 
-Uses a seeded `CryptoResolver` to pin ephemeral keys. The resulting `HANDSHAKE_HASH` constant provides evidence for `libp2p/specs#723` that the KDF mixing order is correct — if JS or Python produce the same hash for the same static keys and seed, the mixing order is confirmed across all three implementations.
+There is also an `#[ignore]` `print_vectors` helper that prints hex-encoded messages for manual cross-language comparison.
 
-Also tests structural compliance:
-- Correct handshake state machine transitions
-- Serialization/deserialization of payloads
-- Forward secrecy of ephemeral keys
+## 2. Interop listener binary (`examples/noise_hfs_listener.rs`)
+
+Standalone TCP listener binary for cross-language testing. Prints `READY <port>` before accepting a connection and `PEER <peer_id>` after the handshake completes. Intended to be paired with the Python or JS dialers mentioned above.
+
+```
+cargo run --example noise_hfs_listener --features mlkem-hfs -- 9999
+```
 
 ## 3. Criterion benchmarks (`benches/noise_hfs.rs`)
 
-Classical XX vs XXhfs latency and 1 KB transport throughput. Provides real-world performance data for the hybrid handshake:
-- Baseline (classical XX) established
-- XXhfs hybrid overhead measured
-- Useful for production planning and documentation
+Compares classical Noise XX vs XXhfs handshake latency, plus 1 KB transport throughput after the hybrid handshake. Useful for production planning documentation.
 
 ---
 
-## Follow-up proposal: RustCrypto `ml-kem` swap
+## Finding: snow's ML-KEM entropy bypasses the seeded resolver
 
-`Resolver::resolve_kem()` currently delegates to `snow::DefaultResolver`, whose ML-KEM implementation is unaudited. The RustCrypto `ml-kem` crate (FIPS 203 compliant, audited by NCC Group) can replace it by implementing `snow::types::Kem` directly for a wrapper type — the same pattern as how `Keypair` already implements `snow::types::Dh` using `x25519-dalek`.
+The current snow fork's `generate()` in `DefaultResolver` calls system entropy directly, bypassing any seeded `CryptoResolver`. This means cross-implementation deterministic test vectors — needed to close the KDF mixing order question in specs#723 — cannot be produced through `snow::Builder` alone without a custom ML-KEM implementation that accepts an external RNG. Worth considering whether a seeded generation path should be added to the snow fork for interop testing purposes.
 
-**Benefits:**
-- Auditability and FIPS compliance
-- Consistent with py-libp2p and js-libp2p-noise (both use RustCrypto-equivalent audited backends)
-- Independence from snow's internal resolver for the KEM path
-- Future-proofs against snow implementation changes
+## Suggestion: RustCrypto `ml-kem` swap
 
-We're happy to write that swap as a follow-up PR if you're open to it — wanted to surface the proposal here before doing any work.
+`Resolver::resolve_kem()` delegates to snow's `DefaultResolver`, whose ML-KEM backend is marked unaudited in the source. The RustCrypto `ml-kem` crate (FIPS 203 compliant, audited by NCC Group) could be used instead by implementing `snow::types::Kem` directly — the same pattern as how `Keypair` already wraps `x25519-dalek` for the DH path. Happy to write that as a follow-up if you're open to it.
 
 ---
 

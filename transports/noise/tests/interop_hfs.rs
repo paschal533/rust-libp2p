@@ -132,7 +132,7 @@ fn run_seeded_handshake(
     buf.resize(65535, 0);
     responder.read_message(&msg1, &mut buf).unwrap();
 
-    // msg2: responder → initiator  (tokens: e, ee, s, es, e1, ekem1)
+    // msg2: responder → initiator  (tokens: e, ee, s, es, ekem1)
     let n = responder.write_message(&[], &mut buf).unwrap();
     let msg2 = buf[..n].to_vec();
     buf.resize(65535, 0);
@@ -249,10 +249,7 @@ fn print_vectors() {
     assert_eq!(msg1.len(), 1216, "msg1 must be 1216 bytes");
     // msg2 = 32 (e) + 16 (ee AEAD tag) + 32 (s encrypted) + 16 (es AEAD tag)
     //      + 1088 (ekem1 ciphertext) + 16 (ekem1 AEAD tag) = 1200 bytes
-    assert!(
-        msg2.len() > 1000,
-        "msg2 must include KEM ciphertext (> 1000 bytes)"
-    );
+    assert_eq!(msg2.len(), 1200, "msg2 must be 1200 bytes");
     // msg3 = 32 (s encrypted) + 16 (se AEAD tag) + 16 (payload AEAD tag) = 64 bytes
     assert_eq!(msg3.len(), 64, "msg3 must be 64 bytes");
 }
