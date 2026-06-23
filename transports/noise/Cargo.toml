@@ -44,7 +44,9 @@ criterion = { workspace = true }
 hex-literal = { workspace = true }
 # Snow exposed as a dev-dep so integration tests can build seeded resolvers
 # for deterministic vector generation without touching src/.
-snow = { version = "0.10", features = ["default-resolver", "use-ml-kem", "use-curve25519"], default-features = false }
+# Needs use-chacha20poly1305 + use-sha2 so DefaultResolver can handle the full
+# Noise_XXhfs_25519+ML-KEM-768_ChaChaPoly_SHA256 parameter string.
+snow = { version = "0.10", features = ["default-resolver", "use-ml-kem", "use-curve25519", "use-chacha20poly1305", "use-sha2"], default-features = false }
 
 [[bench]]
 name = "noise_hfs"
