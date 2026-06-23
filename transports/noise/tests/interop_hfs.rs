@@ -166,13 +166,17 @@ fn handshake_structural_properties() {
     let ([msg1, msg2, msg3], init_hash, resp_hash) = run_seeded_handshake(1, 2);
 
     // msg1 = 32 (e) + 1184 (e1 / ML-KEM-768 public key) = 1216 bytes
-    assert_eq!(msg1.len(), 1216, "msg1 must be 1216 bytes (e + e1 KEM pubkey)");
+    assert_eq!(
+        msg1.len(),
+        1216,
+        "msg1 must be 1216 bytes (e + e1 KEM pubkey)"
+    );
 
     // msg2 contains an ML-KEM-768 ciphertext (1088 bytes) plus overhead
-    assert!(
-        msg2.len() > 1000,
-        "msg2 must carry ML-KEM-768 ciphertext (> 1000 bytes); got {} bytes",
-        msg2.len()
+    assert_eq!(
+        msg2.len(),
+        1200,
+        "msg2 must be 1200 bytes (e + ee + s + es + ekem1 ciphertext + AEAD tags)"
     );
 
     // msg3 = 32 (s encrypted) + 16 (se AEAD tag) + 16 (payload AEAD tag) = 64 bytes
@@ -199,7 +203,11 @@ fn second_run_produces_coherent_results() {
     let ([msg1, msg2, msg3], init_hash, resp_hash) = run_seeded_handshake(3, 4);
 
     assert_eq!(msg1.len(), 1216, "msg1 must be 1216 bytes");
-    assert!(msg2.len() > 1000, "msg2 must carry KEM ciphertext; got {} bytes", msg2.len());
+    assert_eq!(
+        msg2.len(),
+        1200,
+        "msg2 must be 1200 bytes (e + ee + s + es + ekem1 ciphertext + AEAD tags)"
+    );
     assert_eq!(msg3.len(), 64, "msg3 must be 64 bytes");
 
     assert_eq!(
