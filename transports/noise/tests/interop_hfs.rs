@@ -151,6 +151,65 @@ fn run_seeded_handshake(
 }
 
 // ---------------------------------------------------------------------------
+// Structural compliance tests
+// ---------------------------------------------------------------------------
+
+/// Verifies the XXhfs message geometry and intra-run hash agreement.
+///
+/// ML-KEM key generation calls system entropy regardless of the seeded RNG,
+/// so exact byte values change each run. What we CAN assert deterministically:
+/// - Message lengths (fixed by the protocol specification)
+/// - Both sides compute the same handshake hash within a single run
+/// - The handshake hash is non-trivial (not all-zeros)
+#[test]
+fn handshake_structural_properties() {
+    let ([msg1, msg2, msg3], init_hash, resp_hash) = run_seeded_handshake(1, 2);
+
+    // msg1 = 32 (e) + 1184 (e1 / ML-KEM-768 public key) = 1216 bytes
+    assert_eq!(msg1.len(), 1216, "msg1 must be 1216 bytes (e + e1 KEM pubkey)");
+
+    // msg2 contains an ML-KEM-768 ciphertext (1088 bytes) plus overhead
+    assert!(
+        msg2.len() > 1000,
+        "msg2 must carry ML-KEM-768 ciphertext (> 1000 bytes); got {} bytes",
+        msg2.len()
+    );
+
+    // msg3 = 32 (s encrypted) + 16 (se AEAD tag) + 16 (payload AEAD tag) = 64 bytes
+    assert_eq!(msg3.len(), 64, "msg3 must be 64 bytes (s + se tokens)");
+
+    // Both sides must agree on the handshake hash within a single run.
+    assert_eq!(
+        init_hash, resp_hash,
+        "initiator and responder handshake hashes must agree"
+    );
+
+    // Hash must be non-trivial.
+    assert_ne!(init_hash, [0u8; 32], "handshake hash must be non-trivial");
+}
+
+/// Confirms that a second independent handshake also produces coherent results.
+///
+/// Because ML-KEM generate() uses system entropy, hashes are not reproducible
+/// across runs. This test therefore only checks intra-run consistency: that
+/// each side of the second handshake agrees with the other, and that message
+/// lengths conform to the protocol specification.
+#[test]
+fn second_run_produces_coherent_results() {
+    let ([msg1, msg2, msg3], init_hash, resp_hash) = run_seeded_handshake(3, 4);
+
+    assert_eq!(msg1.len(), 1216, "msg1 must be 1216 bytes");
+    assert!(msg2.len() > 1000, "msg2 must carry KEM ciphertext; got {} bytes", msg2.len());
+    assert_eq!(msg3.len(), 64, "msg3 must be 64 bytes");
+
+    assert_eq!(
+        init_hash, resp_hash,
+        "initiator and responder must agree on handshake hash"
+    );
+    assert_ne!(init_hash, [0u8; 32], "handshake hash must be non-trivial");
+}
+
+// ---------------------------------------------------------------------------
 // Vector generator — prints message sizes and verifies intra-run hash
 // agreement. Run with `-- --ignored --nocapture`.
 // Note: HANDSHAKE_HASH bytes vary across runs because ML-KEM generate()
