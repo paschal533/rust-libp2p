@@ -39,19 +39,36 @@ use std::net::TcpListener;
 /// Must match `NOISE_MLKEM_HFS_PROTOCOL` in the crate (kept private there).
 const HFS_PROTOCOL: &str = "/noise-mlkem768-hfs/0.1.0";
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() {
     let port = parse_port();
 
     let id_keys = identity::Keypair::generate_ed25519();
-    let noise_config = noise::Config::new(&id_keys)?;
+    let noise_config = match noise::Config::new(&id_keys) {
+        Ok(config) => config,
+        Err(e) => {
+            eprintln!("ERROR config init: {e}");
+            std::process::exit(1);
+        }
+    };
 
-    let listener = TcpListener::bind(("127.0.0.1", port))
-        .map_err(|e| format!("bind 127.0.0.1:{port}: {e}"))?;
+    let listener = match TcpListener::bind(("127.0.0.1", port)) {
+        Ok(l) => l,
+        Err(e) => {
+            eprintln!("ERROR bind 127.0.0.1:{port}: {e}");
+            std::process::exit(1);
+        }
+    };
 
     // Signal readiness *before* blocking on accept, so callers know when to connect.
     println!("READY {port}");
 
-    let (stream, peer_addr) = listener.accept().map_err(|e| format!("accept: {e}"))?;
+    let (stream, peer_addr) = match listener.accept() {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("ERROR accept: {e}");
+            std::process::exit(1);
+        }
+    };
     eprintln!("connection from {peer_addr}");
 
     let result = block_on(noise_config.upgrade_inbound(AllowStdIo::new(stream), HFS_PROTOCOL));
@@ -59,7 +76,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     match result {
         Ok((peer_id, _io)) => {
             println!("PEER {peer_id}");
-            Ok(())
         }
         Err(e) => {
             eprintln!("ERROR handshake failed: {e}");
@@ -85,14 +101,14 @@ fn parse_port() -> u16 {
                     eprintln!("ERROR invalid port value: {val}");
                     std::process::exit(1);
                 });
-            } else {
-                eprintln!("ERROR --port requires a value");
-                std::process::exit(1);
             }
-        } else if !args[i].starts_with("--") {
-            if let Ok(port) = args[i].parse::<u16>() {
-                return port;
-            }
+            eprintln!("ERROR --port requires a value");
+            std::process::exit(1);
+        }
+        if !args[i].starts_with("--")
+            && let Ok(port) = args[i].parse::<u16>()
+        {
+            return port;
         }
         i += 1;
     }
