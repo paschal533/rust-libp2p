@@ -29,10 +29,10 @@ fn bench_xx_handshake(c: &mut Criterion) {
             || {
                 let server_id = identity::Keypair::generate_ed25519();
                 let client_id = identity::Keypair::generate_ed25519();
-                (server_id, client_id)
-            },
-            |(server_id, client_id)| {
                 let (client_sock, server_sock) = futures_ringbuf::Endpoint::pair(65535, 65535);
+                (server_id, client_id, client_sock, server_sock)
+            },
+            |(server_id, client_id, client_sock, server_sock)| {
                 block_on(try_join(
                     noise::Config::new(&server_id)
                         .unwrap()
@@ -54,10 +54,10 @@ fn bench_xxhfs_handshake(c: &mut Criterion) {
             || {
                 let server_id = identity::Keypair::generate_ed25519();
                 let client_id = identity::Keypair::generate_ed25519();
-                (server_id, client_id)
-            },
-            |(server_id, client_id)| {
                 let (client_sock, server_sock) = futures_ringbuf::Endpoint::pair(65535, 65535);
+                (server_id, client_id, client_sock, server_sock)
+            },
+            |(server_id, client_id, client_sock, server_sock)| {
                 block_on(try_join(
                     noise::Config::new(&server_id)
                         .unwrap()
@@ -78,8 +78,6 @@ fn bench_xxhfs_handshake(c: &mut Criterion) {
 // ---------------------------------------------------------------------------
 
 fn bench_xxhfs_transport_1kb(c: &mut Criterion) {
-    let payload = vec![0u8; 1024];
-
     c.bench_function("noise_xxhfs_transport_send_1kb", |b| {
         b.iter_batched(
             || {
@@ -96,10 +94,10 @@ fn bench_xxhfs_transport_1kb(c: &mut Criterion) {
                         .upgrade_outbound(client_sock, HFS),
                 ))
                 .unwrap();
-                (server_io, client_io)
+                let payload = vec![0u8; 1024];
+                (server_io, client_io, payload)
             },
-            |(mut server_io, mut client_io)| {
-                let payload = payload.clone();
+            |(mut server_io, mut client_io, payload)| {
                 block_on(async move {
                     client_io.write_all(&payload).await.unwrap();
                     client_io.flush().await.unwrap();
