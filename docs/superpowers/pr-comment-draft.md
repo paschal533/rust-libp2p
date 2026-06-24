@@ -2,38 +2,62 @@
 
 We've been working on cross-language PQC interop across the libp2p ecosystem (JS: js-libp2p-noise PR #665, Python: py-libp2p PR #1310) and wanted to contribute the Rust side of that work here.
 
-## 1. Structural compliance tests (`tests/interop_hfs.rs`)
+## 1. Live Rust ↔ Python interop — it works ✓
 
-`SeededResolver` pins the X25519 static keys for both sides, but ML-KEM ephemeral keys still use system entropy — the snow fork's `generate()` bypasses the seeded RNG and calls the OS directly. Because of this, the handshake hash changes every run and a pinned `HANDSHAKE_HASH` constant cannot be asserted across runs or machines.
+We wrote a standalone Python dialer (`py-libp2p/scripts/interop_dial_mlkem768.py`) that speaks `Noise_XXhfs_25519+ML-KEM-768_ChaChaPoly_SHA256` directly (using `kyber-py`'s ML_KEM_768 for the KEM), then dialed the `noise_hfs_listener` binary live:
 
-What the tests *can* assert deterministically:
+```
+# Terminal 1
+cargo run --example noise_hfs_listener --features mlkem-hfs -- 9999
 
-- **Intra-run hash agreement**: both initiator and responder compute the same handshake hash within a single run.
-- **Message length geometry**: msg1 = 1216 bytes (e + e1 KEM pubkey), msg2 = 1200 bytes (e + ee + s + es + ekem1 ciphertext + AEAD tags), msg3 = 64 bytes (s + se).
+# Terminal 2
+cd py-libp2p && python scripts/interop_dial_mlkem768.py --port 9999
 
-There is also an `#[ignore]` `print_vectors` helper that prints hex-encoded messages for manual cross-language comparison.
+# Output
+msg1 sent: 1216 bytes (e_pk=32, e1_pk=1184)
+msg2 received: 1304 bytes
+msg2: responder identity verified, peer=12D3KooWHvA2VB6DBguv9i27jy41SbYexFub8bXRmucFUevAGaWJ
+msg3 sent: 168 bytes
+PEER 12D3KooWHvA2VB6DBguv9i27jy41SbYexFub8bXRmucFUevAGaWJ
+HANDSHAKE COMPLETE
+```
 
-## 2. Interop listener binary (`examples/noise_hfs_listener.rs`)
+Both sides completed mutual authentication (identity signatures verified) and the three-message handshake succeeded end-to-end. **Message geometry confirmed: msg1=1216B, msg2=1304B, msg3=168B** (the 1304B reflects the identity payload size from Rust's libp2p-noise protobuf encoding).
 
-Standalone TCP listener binary for cross-language testing. Prints `READY <port>` before accepting a connection and `PEER <peer_id>` after the handshake completes. Intended to be paired with the Python or JS dialers mentioned above.
+Note on the X-Wing variant: our existing JS and Python implementations use X-Wing (ML-KEM-768 + X25519 bundled as one KEM, protocol `/noise-pq/1.0.0`) — a valid but distinct approach from this PR's raw ML-KEM-768 pattern. The two protocols are not wire-compatible; that's expected and worth calling out for specs#723.
+
+## 2. Structural compliance tests (`tests/interop_hfs.rs`)
+
+`SeededResolver` pins the X25519 static keys, but ML-KEM ephemeral keys still use system entropy — the snow fork's `generate()` bypasses the seeded RNG. Tests assert what can be determined deterministically:
+
+- **Intra-run hash agreement**: both initiator and responder compute the same handshake hash.
+- **Message length geometry**: msg1=1216B, msg2=1200B (snow-level, no identity payload), msg3=64B.
+
+## 3. Interop listener binary (`examples/noise_hfs_listener.rs`)
 
 ```
 cargo run --example noise_hfs_listener --features mlkem-hfs -- 9999
 ```
 
-## 3. Criterion benchmarks (`benches/noise_hfs.rs`)
+Prints `READY <port>` then `PEER <peer_id>` on success. Tested with the Python dialer above.
 
-Compares classical Noise XX vs XXhfs handshake latency, plus 1 KB transport throughput after the hybrid handshake. Useful for production planning documentation.
+## 4. Criterion benchmarks (`benches/noise_hfs.rs`)
+
+Classical Noise XX vs XXhfs handshake latency + 1KB transport throughput.
+
+```
+cargo bench --features mlkem-hfs
+```
 
 ---
 
 ## Finding: snow's ML-KEM entropy bypasses the seeded resolver
 
-The current snow fork's `generate()` in `DefaultResolver` calls system entropy directly, bypassing any seeded `CryptoResolver`. This means cross-implementation deterministic test vectors — needed to close the KDF mixing order question in specs#723 — cannot be produced through `snow::Builder` alone without a custom ML-KEM implementation that accepts an external RNG. Worth considering whether a seeded generation path should be added to the snow fork for interop testing purposes.
+The snow fork's `generate()` in `DefaultResolver` calls system entropy directly, ignoring the injected `CryptoResolver`. This prevents fully deterministic cross-language test vectors (needed for specs#723 question 2). Worth considering a seeded generation path in the fork for interop testing.
 
 ## Suggestion: RustCrypto `ml-kem` swap
 
-`Resolver::resolve_kem()` delegates to snow's `DefaultResolver`, whose ML-KEM backend is marked unaudited in the source. The RustCrypto `ml-kem` crate (FIPS 203 compliant, audited by NCC Group) could be used instead by implementing `snow::types::Kem` directly — the same pattern as how `Keypair` already wraps `x25519-dalek` for the DH path. Happy to write that as a follow-up if you're open to it.
+`Resolver::resolve_kem()` delegates to snow's `DefaultResolver`, whose ML-KEM backend is marked unaudited. The RustCrypto `ml-kem` crate (FIPS 203 compliant, audited by NCC Group) could replace it by implementing `snow::types::Kem` directly — same pattern as the existing `x25519-dalek` DH wrapper. Happy to write that as a follow-up if you're open to it.
 
 ---
 
