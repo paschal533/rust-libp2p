@@ -7,11 +7,11 @@
 //!
 //! # Cross-language interop (run manually)
 //!
-//! Terminal 1 — Rust listener:
+//! Terminal 1, Rust listener:
 //! ```text
 //! cargo run -p libp2p-noise --example noise_hfs_listener --features mlkem-hfs -- 9999
 //! ```
-//! Terminal 2 — a dialer from another implementation, for example:
+//! Terminal 2, a dialer from another implementation, for example:
 //! ```text
 //! python scripts/interop_dial_mlkem768.py --port 9999   # py-libp2p
 //! node scripts/noise-hfs-dial.mjs --port 9999           # js-libp2p-noise
@@ -29,7 +29,7 @@ use snow::{
 };
 
 // ---------------------------------------------------------------------------
-// Deterministic resolver — identical to production Resolver except the RNG
+// Deterministic resolver, identical to production Resolver except the RNG
 // is seeded, making every handshake reproducible.
 // ---------------------------------------------------------------------------
 
@@ -71,7 +71,7 @@ impl CryptoResolver for SeededResolver {
 }
 
 // ---------------------------------------------------------------------------
-// Fixed static private keys — any 32 bytes are valid X25519 private keys
+// Fixed static private keys: any 32 bytes are valid X25519 private keys
 // (x25519 clamps bits internally).
 // ---------------------------------------------------------------------------
 
@@ -92,7 +92,7 @@ static PARAMS_HFS: LazyLock<NoiseParams> = LazyLock::new(|| {
 });
 
 // ---------------------------------------------------------------------------
-// Core helper — runs one full XXhfs handshake with seeded resolvers.
+// Core helper: runs one full XXhfs handshake with seeded resolvers.
 // Returns (msgs, initiator_hash, responder_hash).
 // NOTE: ML-KEM generate() calls system entropy regardless of the seeded RNG,
 // so the handshake hash is NOT reproducible across runs or machines.
@@ -128,7 +128,7 @@ fn run_seeded_handshake(
 
     let mut buf = vec![0u8; 65535];
 
-    // msg1: initiator → responder  (tokens: e, e1 — ephemeral KEM pubkey)
+    // msg1: initiator → responder  (tokens: e, e1; e1 is the ephemeral KEM pubkey)
     let n = initiator.write_message(&[], &mut buf).unwrap();
     let msg1 = buf[..n].to_vec();
     buf.resize(65535, 0);
@@ -220,7 +220,7 @@ fn second_run_produces_coherent_results() {
 }
 
 // ---------------------------------------------------------------------------
-// Vector generator — prints message sizes and verifies intra-run hash
+// Vector generator: prints message sizes and verifies intra-run hash
 // agreement. Run with `-- --ignored --nocapture`.
 // Note: HANDSHAKE_HASH bytes vary across runs because ML-KEM generate()
 // uses system entropy; only intra-run consistency can be asserted here.
