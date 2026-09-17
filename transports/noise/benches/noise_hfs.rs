@@ -19,6 +19,20 @@ use libp2p_noise as noise;
 const CLASSICAL: &str = "/noise";
 const HFS: &str = "/noise-mlkem768-hfs/0.2.0";
 
+/// Fresh identities plus a paired in-memory duplex socket for one benchmark
+/// iteration.
+fn fresh_setup() -> (
+    identity::Keypair,
+    identity::Keypair,
+    futures_ringbuf::Endpoint,
+    futures_ringbuf::Endpoint,
+) {
+    let server_id = identity::Keypair::generate_ed25519();
+    let client_id = identity::Keypair::generate_ed25519();
+    let (client_sock, server_sock) = futures_ringbuf::Endpoint::pair(65535, 65535);
+    (server_id, client_id, client_sock, server_sock)
+}
+
 // ---------------------------------------------------------------------------
 // Handshake benchmarks
 // ---------------------------------------------------------------------------
@@ -26,12 +40,7 @@ const HFS: &str = "/noise-mlkem768-hfs/0.2.0";
 fn bench_xx_handshake(c: &mut Criterion) {
     c.bench_function("noise_xx_classical_handshake", |b| {
         b.iter_batched(
-            || {
-                let server_id = identity::Keypair::generate_ed25519();
-                let client_id = identity::Keypair::generate_ed25519();
-                let (client_sock, server_sock) = futures_ringbuf::Endpoint::pair(65535, 65535);
-                (server_id, client_id, client_sock, server_sock)
-            },
+            fresh_setup,
             |(server_id, client_id, client_sock, server_sock)| {
                 block_on(try_join(
                     noise::Config::new(&server_id)
@@ -51,12 +60,7 @@ fn bench_xx_handshake(c: &mut Criterion) {
 fn bench_xxhfs_handshake(c: &mut Criterion) {
     c.bench_function("noise_xxhfs_mlkem768_handshake", |b| {
         b.iter_batched(
-            || {
-                let server_id = identity::Keypair::generate_ed25519();
-                let client_id = identity::Keypair::generate_ed25519();
-                let (client_sock, server_sock) = futures_ringbuf::Endpoint::pair(65535, 65535);
-                (server_id, client_id, client_sock, server_sock)
-            },
+            fresh_setup,
             |(server_id, client_id, client_sock, server_sock)| {
                 block_on(try_join(
                     noise::Config::new(&server_id)
@@ -81,9 +85,7 @@ fn bench_xxhfs_transport_1kb(c: &mut Criterion) {
     c.bench_function("noise_xxhfs_transport_send_1kb", |b| {
         b.iter_batched(
             || {
-                let server_id = identity::Keypair::generate_ed25519();
-                let client_id = identity::Keypair::generate_ed25519();
-                let (client_sock, server_sock) = futures_ringbuf::Endpoint::pair(65535, 65535);
+                let (server_id, client_id, client_sock, server_sock) = fresh_setup();
 
                 let ((_, server_io), (_, client_io)) = block_on(try_join(
                     noise::Config::new(&server_id)

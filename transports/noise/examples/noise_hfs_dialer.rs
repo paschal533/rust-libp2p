@@ -11,20 +11,15 @@
 #[path = "common/interop.rs"]
 mod interop;
 
+use std::{net::TcpStream, time::Duration};
+
 use futures::{executor::block_on, io::AllowStdIo, prelude::*};
 use libp2p_core::upgrade::OutboundConnectionUpgrade;
-use libp2p_identity as identity;
-use libp2p_noise as noise;
-use std::{net::TcpStream, time::Duration};
 
 const PEER_CLOSE_TIMEOUT: Duration = Duration::from_secs(5);
 
 fn main() {
-    let port = interop::parse_port(9999);
-    let id_keys = identity::Keypair::generate_ed25519();
-    println!("LOCAL {}", id_keys.public().to_peer_id());
-    let config =
-        noise::Config::new(&id_keys).unwrap_or_else(|e| interop::fail(format!("config init: {e}")));
+    let (port, config) = interop::init(9999);
 
     let stream = TcpStream::connect(("127.0.0.1", port))
         .unwrap_or_else(|e| interop::fail(format!("connect 127.0.0.1:{port}: {e}")));

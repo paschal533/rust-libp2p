@@ -1,7 +1,10 @@
-//! Shared pieces of the cross-implementation interop harness: port parsing and
-//! the one-line greeting exchange every implementation speaks (listener first).
+//! Shared pieces of the cross-implementation interop harness: port parsing,
+//! peer bootstrap and the one-line greeting exchange every implementation
+//! speaks (listener first).
 
 use futures::prelude::*;
+use libp2p_identity as identity;
+use libp2p_noise as noise;
 
 /// Must match `NOISE_MLKEM_HFS_PROTOCOL` in the crate (kept private there).
 pub(crate) const HFS_PROTOCOL: &str = "/noise-mlkem768-hfs/0.2.0";
@@ -28,6 +31,16 @@ pub(crate) fn parse_port(default: u16) -> u16 {
     };
     raw.parse()
         .unwrap_or_else(|_| fail(format!("invalid port value: {raw}")))
+}
+
+/// Parses the port, generates an ephemeral identity, prints `LOCAL`, and
+/// builds the Noise config every interop binary starts from.
+pub(crate) fn init(default_port: u16) -> (u16, noise::Config) {
+    let port = parse_port(default_port);
+    let id_keys = identity::Keypair::generate_ed25519();
+    println!("LOCAL {}", id_keys.public().to_peer_id());
+    let config = noise::Config::new(&id_keys).unwrap_or_else(|e| fail(format!("config init: {e}")));
+    (port, config)
 }
 
 pub(crate) async fn send_greeting<T: AsyncWrite + Unpin>(io: &mut T) -> std::io::Result<()> {

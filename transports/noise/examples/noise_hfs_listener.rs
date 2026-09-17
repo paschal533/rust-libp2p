@@ -11,18 +11,13 @@
 #[path = "common/interop.rs"]
 mod interop;
 
-use futures::{executor::block_on, io::AllowStdIo};
-use libp2p_core::upgrade::InboundConnectionUpgrade;
-use libp2p_identity as identity;
-use libp2p_noise as noise;
 use std::net::TcpListener;
 
+use futures::{executor::block_on, io::AllowStdIo};
+use libp2p_core::upgrade::InboundConnectionUpgrade;
+
 fn main() {
-    let port = interop::parse_port(9999);
-    let id_keys = identity::Keypair::generate_ed25519();
-    println!("LOCAL {}", id_keys.public().to_peer_id());
-    let config =
-        noise::Config::new(&id_keys).unwrap_or_else(|e| interop::fail(format!("config init: {e}")));
+    let (port, config) = interop::init(9999);
 
     let listener = TcpListener::bind(("127.0.0.1", port))
         .unwrap_or_else(|e| interop::fail(format!("bind 127.0.0.1:{port}: {e}")));
