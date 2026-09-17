@@ -58,6 +58,10 @@ required-features = ["mlkem-hfs"]
 name = "noise_hfs_listener"
 required-features = ["mlkem-hfs"]
 
+[[example]]
+name = "noise_hfs_dialer"
+required-features = ["mlkem-hfs"]
+
 # Passing arguments to the docsrs builder in order to properly document cfg's.
 # More information: https://docs.rs/about/builds#cross-compiling
 [package.metadata.docs.rs]

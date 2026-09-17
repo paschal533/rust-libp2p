@@ -1,117 +1,49 @@
-//! Standalone TCP listener for cross-language interop testing.
+//! Interop listener (responder) for `Noise_XXhfs_25519+MLKEM768_ChaChaPoly_SHA256`.
 //!
-//! Accepts one connection, completes a Noise_XXhfs_25519+MLKEM768 handshake
-//! as the responder, prints the remote peer ID, and exits 0.
-//!
-//! # Usage
+//! Accepts one connection, completes the handshake, sends one greeting, checks
+//! the reply, prints `INTEROP_OK` and exits 0. Stdout contract: `LOCAL`,
+//! `READY`, `PEER`, `SENT`, `RECV`, `INTEROP_OK`; errors go to stderr, exit 1.
 //!
 //! ```bash
-//! cargo run --example noise_hfs_listener --features mlkem-hfs -- 9999
-//! # or with named flag:
-//! cargo run --example noise_hfs_listener --features mlkem-hfs -- --port 9999
+//! cargo run -p libp2p-noise --example noise_hfs_listener --features mlkem-hfs -- 9999
 //! ```
-//!
-//! Then dial it from Python (py-libp2p PR #1310):
-//! ```bash
-//! python scripts/interop_dial.py --port 9999 --protocol /noise-mlkem768-hfs/0.2.0
-//! ```
-//!
-//! Or from JavaScript (js-libp2p-noise PR #665):
-//! ```bash
-//! node scripts/interop-dial.mjs --port 9999
-//! ```
-//!
-//! ## Output protocol
-//!
-//! The binary writes to stdout in this order:
-//! 1. `READY <port>` — emitted before blocking on `accept()`, so callers know when to connect.
-//! 2. `PEER <peer_id>` — the libp2p `PeerId` of the remote party, printed after a successful
-//!    handshake.
-//!
-//! On any error the binary prints a message to stderr and exits with code 1.
 
-use std::net::TcpListener;
+#[path = "common/interop.rs"]
+mod interop;
 
 use futures::{executor::block_on, io::AllowStdIo};
 use libp2p_core::upgrade::InboundConnectionUpgrade;
 use libp2p_identity as identity;
 use libp2p_noise as noise;
-
-/// Must match `NOISE_MLKEM_HFS_PROTOCOL` in the crate (kept private there).
-const HFS_PROTOCOL: &str = "/noise-mlkem768-hfs/0.2.0";
+use std::net::TcpListener;
 
 fn main() {
-    let port = parse_port();
-
+    let port = interop::parse_port(9999);
     let id_keys = identity::Keypair::generate_ed25519();
-    let noise_config = match noise::Config::new(&id_keys) {
-        Ok(config) => config,
-        Err(e) => {
-            eprintln!("ERROR config init: {e}");
-            std::process::exit(1);
-        }
-    };
+    println!("LOCAL {}", id_keys.public().to_peer_id());
+    let config =
+        noise::Config::new(&id_keys).unwrap_or_else(|e| interop::fail(format!("config init: {e}")));
 
-    let listener = match TcpListener::bind(("127.0.0.1", port)) {
-        Ok(l) => l,
-        Err(e) => {
-            eprintln!("ERROR bind 127.0.0.1:{port}: {e}");
-            std::process::exit(1);
-        }
-    };
-
-    // Signal readiness *before* blocking on accept, so callers know when to connect.
+    let listener = TcpListener::bind(("127.0.0.1", port))
+        .unwrap_or_else(|e| interop::fail(format!("bind 127.0.0.1:{port}: {e}")));
     println!("READY {port}");
-
-    let (stream, peer_addr) = match listener.accept() {
-        Ok(s) => s,
-        Err(e) => {
-            eprintln!("ERROR accept: {e}");
-            std::process::exit(1);
-        }
-    };
+    let (stream, peer_addr) = listener
+        .accept()
+        .unwrap_or_else(|e| interop::fail(format!("accept: {e}")));
     eprintln!("connection from {peer_addr}");
 
-    let result = block_on(noise_config.upgrade_inbound(AllowStdIo::new(stream), HFS_PROTOCOL));
-
-    match result {
-        Ok((peer_id, _io)) => {
-            println!("PEER {peer_id}");
-        }
-        Err(e) => {
-            eprintln!("ERROR handshake failed: {e}");
-            std::process::exit(1);
-        }
-    }
-}
-
-/// Parse the port from command-line arguments.
-///
-/// Accepted forms:
-/// - positional: `noise_hfs_listener 9999`
-/// - named flag: `noise_hfs_listener --port 9999`
-///
-/// Defaults to 9999 when no argument is provided.
-fn parse_port() -> u16 {
-    let args: Vec<String> = std::env::args().collect();
-    let mut i = 1;
-    while i < args.len() {
-        if args[i] == "--port" {
-            if let Some(val) = args.get(i + 1) {
-                return val.parse().unwrap_or_else(|_| {
-                    eprintln!("ERROR invalid port value: {val}");
-                    std::process::exit(1);
-                });
-            }
-            eprintln!("ERROR --port requires a value");
-            std::process::exit(1);
-        }
-        if !args[i].starts_with("--")
-            && let Ok(port) = args[i].parse::<u16>()
-        {
-            return port;
-        }
-        i += 1;
-    }
-    9999
+    block_on(async {
+        let (peer_id, mut io) = config
+            .upgrade_inbound(AllowStdIo::new(stream), interop::HFS_PROTOCOL)
+            .await
+            .unwrap_or_else(|e| interop::fail(format!("handshake failed: {e}")));
+        println!("PEER {peer_id}");
+        interop::send_greeting(&mut io)
+            .await
+            .unwrap_or_else(|e| interop::fail(e));
+        interop::read_greeting(&mut io)
+            .await
+            .unwrap_or_else(|e| interop::fail(e));
+        println!("INTEROP_OK");
+    });
 }
