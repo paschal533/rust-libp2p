@@ -3267,7 +3267,6 @@ dependencies = [
  "futures",
  "futures_ringbuf",
  "getrandom 0.3.4",
- "hex-literal",
  "libp2p-core",
  "libp2p-identity",
  "multiaddr",

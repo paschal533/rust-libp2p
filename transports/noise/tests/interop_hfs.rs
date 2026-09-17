@@ -1,19 +1,20 @@
-//! Cross-language interop tests and deterministic test vectors for
-//! Noise_XXhfs_25519+MLKEM768_ChaChaPoly_SHA256 (PR #6481).
+//! Structural tests for Noise_XXhfs_25519+MLKEM768_ChaChaPoly_SHA256
+//! (PR #6481), driving snow directly with seeded resolvers.
+//!
+//! ML-KEM key generation draws system entropy, so message bytes and the
+//! handshake hash differ on every run; only sizes and intra-run agreement
+//! are checked here.
 //!
 //! # Cross-language interop (run manually)
 //!
 //! Terminal 1 — Rust listener:
+//! ```text
+//! cargo run -p libp2p-noise --example noise_hfs_listener --features mlkem-hfs -- 9999
 //! ```
-//! cargo run --example noise_hfs_listener --features mlkem-hfs -- 9999
-//! ```
-//! Terminal 2 — Python dialer (py-libp2p PR #1310):
-//! ```
-//! python scripts/interop_dial.py --port 9999 --protocol /noise-mlkem768-hfs/0.2.0
-//! ```
-//! Terminal 3 — JS dialer (js-libp2p-noise PR #665):
-//! ```
-//! node scripts/interop-dial.mjs --port 9999
+//! Terminal 2 — a dialer from another implementation, for example:
+//! ```text
+//! python scripts/interop_dial_mlkem768.py --port 9999   # py-libp2p
+//! node scripts/noise-hfs-dial.mjs --port 9999           # js-libp2p-noise
 //! ```
 
 #![cfg(feature = "mlkem-hfs")]
