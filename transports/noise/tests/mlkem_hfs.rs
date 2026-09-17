@@ -8,7 +8,7 @@ use libp2p_identity as identity;
 use libp2p_noise as noise;
 
 // Must match `NOISE_MLKEM_HFS_PROTOCOL` in the crate (kept private there).
-const HFS: &str = "/noise-mlkem768-hfs/0.1.0";
+const HFS: &str = "/noise-mlkem768-hfs/0.2.0";
 
 #[test]
 fn xxhfs_mlkem768_handshake_and_transport() {

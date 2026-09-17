@@ -13,7 +13,7 @@
 //!
 //! Then dial it from Python (py-libp2p PR #1310):
 //! ```bash
-//! python scripts/interop_dial.py --port 9999 --protocol /noise-mlkem768-hfs/0.1.0
+//! python scripts/interop_dial.py --port 9999 --protocol /noise-mlkem768-hfs/0.2.0
 //! ```
 //!
 //! Or from JavaScript (js-libp2p-noise PR #665):
@@ -38,7 +38,7 @@ use libp2p_identity as identity;
 use libp2p_noise as noise;
 
 /// Must match `NOISE_MLKEM_HFS_PROTOCOL` in the crate (kept private there).
-const HFS_PROTOCOL: &str = "/noise-mlkem768-hfs/0.1.0";
+const HFS_PROTOCOL: &str = "/noise-mlkem768-hfs/0.2.0";
 
 fn main() {
     let port = parse_port();

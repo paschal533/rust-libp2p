@@ -17,7 +17,7 @@ use libp2p_identity as identity;
 use libp2p_noise as noise;
 
 const CLASSICAL: &str = "/noise";
-const HFS: &str = "/noise-mlkem768-hfs/0.1.0";
+const HFS: &str = "/noise-mlkem768-hfs/0.2.0";
 
 // ---------------------------------------------------------------------------
 // Handshake benchmarks

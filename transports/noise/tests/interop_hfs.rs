@@ -9,7 +9,7 @@
 //! ```
 //! Terminal 2 — Python dialer (py-libp2p PR #1310):
 //! ```
-//! python scripts/interop_dial.py --port 9999 --protocol /noise-mlkem768-hfs/0.1.0
+//! python scripts/interop_dial.py --port 9999 --protocol /noise-mlkem768-hfs/0.2.0
 //! ```
 //! Terminal 3 — JS dialer (js-libp2p-noise PR #665):
 //! ```
