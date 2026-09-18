@@ -1,5 +1,6 @@
 //! Structural tests for Noise_XXhfs_25519+MLKEM768_ChaChaPoly_SHA256
-//! (PR #6481), driving snow directly with seeded resolvers.
+//! (PR #6481), driving snow directly with seeded resolvers. The suite is
+//! specified in libp2p/specs#727, a Stage 1A Working Draft.
 //!
 //! ML-KEM key generation draws system entropy, so message bytes and the
 //! handshake hash differ on every run; only sizes and intra-run agreement

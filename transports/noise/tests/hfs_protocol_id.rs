@@ -20,6 +20,11 @@ use libp2p_noise as noise;
 #[path = "../examples/common/interop.rs"]
 mod interop;
 
+// `HFS` is the id this branch ships, not a spec-endorsed one. The Working
+// Draft for the suite, libp2p/specs#727, writes "/noise-mlkem768-hfs/0.1.0"
+// and lists the identifier string as the first of its open issues, so
+// `STALE_HFS` is stale only with respect to this branch's rename. These
+// constants follow whatever #727 settles on.
 const HFS: &str = "/noise-mlkem768-hfs/0.2.0";
 const STALE_HFS: &str = "/noise-mlkem768-hfs/0.1.0";
 
