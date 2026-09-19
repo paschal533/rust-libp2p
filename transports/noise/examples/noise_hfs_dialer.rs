@@ -4,6 +4,9 @@
 //! briefly for the peer to close so the reply is not discarded by an abortive
 //! close. Stdout contract as in `noise_hfs_listener`.
 //!
+//! The whole run is bounded by `interop::RUN_DEADLINE`, so a silent peer
+//! cannot pin the process when this binary is used standalone.
+//!
 //! ```bash
 //! cargo run -p libp2p-noise --example noise_hfs_dialer --features mlkem-hfs -- 9999
 //! ```

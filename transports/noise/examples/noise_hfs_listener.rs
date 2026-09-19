@@ -4,6 +4,10 @@
 //! the reply, prints `INTEROP_OK` and exits 0. Stdout contract: `LOCAL`,
 //! `READY`, `PEER`, `SENT`, `RECV`, `INTEROP_OK`; errors go to stderr, exit 1.
 //!
+//! The whole run is bounded by `interop::RUN_DEADLINE`, so a peer that
+//! connects and then sends nothing cannot pin the process or its port when
+//! this binary is used standalone rather than under `run-matrix.sh`.
+//!
 //! ```bash
 //! cargo run -p libp2p-noise --example noise_hfs_listener --features mlkem-hfs -- 9999
 //! ```
