@@ -55,9 +55,21 @@ fn xxhfs_mlkem768_handshake_and_transport() {
     });
 }
 
-/// Hybrid initiator and classical responder negotiate down to `/noise`.
+/// Enabling `mlkem-hfs` does not disturb the classical `/noise` handshake.
+///
+/// Both sides are given `/noise`, so this is a plain classical XX handshake
+/// with the hybrid feature compiled in. It is a regression check on the
+/// feature gate, not a negotiation test: no hybrid initiator takes part and
+/// no downgrade happens, because each side is handed its protocol id
+/// directly rather than negotiating one.
+///
+/// The mixed-suite case, a hybrid initiator against a classical responder,
+/// is deliberately not covered here. `Config` selects classical XX for any
+/// protocol id it does not recognise (`src/lib.rs`), so that case is about
+/// downgrade behaviour and belongs with the protocol-id tests in
+/// `hfs_protocol_id.rs`.
 #[test]
-fn falls_back_to_classical_when_peer_is_old() {
+fn classical_noise_still_works_with_mlkem_hfs_enabled() {
     let server_id = identity::Keypair::generate_ed25519();
     let client_id = identity::Keypair::generate_ed25519();
 
